@@ -286,27 +286,8 @@ usage() {
     exit 1
 }
 
-# Set default CONFIG_FILE
-SCRIPT_DIR="$(dirname "$(realpath "$0")")"
-export CONFIG_FILE="$SCRIPT_DIR/.env"
-
-# Parse --config argument first
-i=1
-while [[ $i -le $# ]]; do
-    arg="${!i}"
-    if [[ "$arg" == "--config" ]]; then
-        next_i=$((i+1))
-        CONFIG_FILE="${!next_i}"
-        export CONFIG_FILE
-        break
-    fi
-    i=$((i+1))
-done
-
-# Source autodiscover.sh to load .env file
-source "$(dirname "$0")/autodiscover.sh"
-
-# Now parse all arguments normally
+# Parse all arguments
+CONFIG_FILE_SET=false
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -t|--tag) IMAGE_TAG="$2"; shift ;;
@@ -320,34 +301,6 @@ while [[ "$#" -gt 0 ]]; do
                 add_copy_hosts "$1"
                 shift
             done
-
-            if [ "${#COPY_HOSTS[@]}" -eq 0 ]; then
-                # Try to use COPY_HOSTS from .env first
-                if [[ -n "$DOTENV_COPY_HOSTS" ]]; then
-                    echo "Using COPY_HOSTS from .env: $DOTENV_COPY_HOSTS"
-                    IFS=',' read -ra HOSTS_FROM_ENV <<< "$DOTENV_COPY_HOSTS"
-                    COPY_HOSTS=("${HOSTS_FROM_ENV[@]}")
-                else
-                    echo "No hosts specified. Using autodiscovery..."
-                    source "$(dirname "$0")/autodiscover.sh"
-
-                    detect_nodes
-                    if [ $? -ne 0 ]; then
-                        echo "Error: Autodiscovery failed."
-                        exit 1
-                    fi
-
-                    if [ ${#PEER_NODES[@]} -gt 0 ]; then
-                        COPY_HOSTS=("${PEER_NODES[@]}")
-                    fi
-
-                    if [ "${#COPY_HOSTS[@]}" -eq 0 ]; then
-                         echo "Error: Autodiscovery found no other nodes."
-                         exit 1
-                    fi
-                    echo "Autodiscovered hosts: ${COPY_HOSTS[*]}"
-                fi
-            fi
             continue
             ;;
         -j|--build-jobs) BUILD_JOBS="$2"; shift ;;
@@ -380,16 +333,41 @@ while [[ "$#" -gt 0 ]]; do
                 exit 1
             fi
             ;;
-        --config) CONFIG_FILE="$2"; shift ;;
+        --config) CONFIG_FILE="$2"; CONFIG_FILE_SET=true; shift ;;
         -h|--help) usage ;;
         *) echo "Unknown parameter passed: $1"; usage ;;
     esac
     shift
 done
 
-# Set CONFIG_FILE and source autodiscover.sh to load .env
-export CONFIG_FILE
+# Source autodiscover.sh to load .env file
 source "$(dirname "$0")/autodiscover.sh"
+
+# Handle COPY_HOSTS from .env or autodiscovery if not specified via arguments
+if [ "${#COPY_HOSTS[@]}" -eq 0 ]; then
+    if [[ -n "$DOTENV_COPY_HOSTS" ]]; then
+        echo "Using COPY_HOSTS from .env: $DOTENV_COPY_HOSTS"
+        IFS=',' read -ra HOSTS_FROM_ENV <<< "$DOTENV_COPY_HOSTS"
+        COPY_HOSTS=("${HOSTS_FROM_ENV[@]}")
+    else
+        echo "No hosts specified. Using autodiscovery..."
+        detect_nodes
+        if [ $? -ne 0 ]; then
+            echo "Error: Autodiscovery failed."
+            exit 1
+        fi
+
+        if [ ${#PEER_NODES[@]} -gt 0 ]; then
+            COPY_HOSTS=("${PEER_NODES[@]}")
+        fi
+
+        if [ "${#COPY_HOSTS[@]}" -eq 0 ]; then
+              echo "Error: Autodiscovery found no other nodes."
+              exit 1
+        fi
+        echo "Autodiscovered hosts: ${COPY_HOSTS[*]}"
+    fi
+fi
 
 # Validate flag combinations
 if [ -n "$VLLM_PRS" ]; then

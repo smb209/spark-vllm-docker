@@ -159,9 +159,12 @@ done
 # Set .env file path (use default if not specified)
 if [[ -z "$CONFIG_FILE" ]]; then
     CONFIG_FILE="$SCRIPT_DIR/.env"
+    CONFIG_FILE_SET=false
+else
+    CONFIG_FILE_SET=true
 fi
 
-# Load .env file if exists
+# Load .env file
 if [[ -f "$CONFIG_FILE" ]]; then
     echo "Loading configuration from .env file..."
     

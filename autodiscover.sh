@@ -4,11 +4,19 @@
 # This is called early so that DOTENV_* variables are available to all functions
 load_env_if_exists() {
     local env_file="${CONFIG_FILE:-}"
+    local config_explicit="${CONFIG_FILE_SET:-false}"
     
     # If CONFIG_FILE is not set, check default location
     if [[ -z "$env_file" ]]; then
         local script_dir="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
         env_file="$script_dir/.env"
+        config_explicit="false"
+    fi
+    
+    # Validate config file exists if explicitly specified
+    if [[ "$config_explicit" == "true" ]] && [[ ! -f "$env_file" ]]; then
+        echo "Error: Config file not found: $env_file"
+        exit 1
     fi
     
     if [[ -f "$env_file" ]]; then

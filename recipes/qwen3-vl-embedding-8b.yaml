@@ -13,14 +13,14 @@ container_name: vllm-embedding
 
 solo_only: true  # embedding servers don't benefit from tensor parallelism
 
-# mods:
-#   - mods/gpu-mem-util-gb
+mods:
+  - mods/drop-caches
 
 defaults:
   port: 8001       # offset from LLM port so both can run on same Spark
   host: 0.0.0.0
-  gpu_memory_utilization_gb: 18   # This is not reliable for this model, but lets keep it here for reference
-  gpu_memory_utilization: 0.17   # ~21GB — model is 15.48GB + CUDA graphs
+  tensor_parallel: 1
+  gpu_memory_utilization: 0.16   # ~20GB — model is 15.48GB + CUDA graphs
   max_model_len: 8192
 
 env:
@@ -32,8 +32,10 @@ command: |
     --runner pooling \
     --trust-remote-code \
     --gpu-memory-utilization {gpu_memory_utilization} \
+    -tp {tensor_parallel} \
     --host {host} \
     --port {port} \
-    --load-format fastsafetensors \
-    --attention-backend flashinfer \
-    --max-model-len {max_model_len}
+    --max-model-len {max_model_len} \
+    --load-format safetensors \
+    --limit-mm-per-prompt image=1 \
+    --limit-mm-per-prompt video=0

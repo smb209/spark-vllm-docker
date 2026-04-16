@@ -1,9 +1,10 @@
-# Recipe: Qwen3.5-35B-A3B-FP8
-# Single-Spark tp=1, InstantTensor load, MTP speculative decoding
+# Recipe: Qwen3.5-35B-A3B-FP8 + DFlash speculative decoding
+# Single-Spark tp=1, 15-token draft model Qwen3.5-35B-A3B-DFlash
+# Draft model must be at /home/snappyspark/models/Qwen3.5-35B-A3B-DFlash on the host
 
 recipe_version: "1"
-name: Qwen3.5-35B-A3B-FP8
-description: vLLM serving Qwen3.5-35B-A3B-FP8 (single Spark, MTP speculative decoding)
+name: Qwen3.5-35B-A3B-DFlash
+description: vLLM serving Qwen3.5-35B-A3B-FP8 with DFlash speculative decoding (15 tokens)
 
 model: Qwen/Qwen3.5-35B-A3B-FP8
 
@@ -15,13 +16,18 @@ mods:
   - mods/fix-qwen3.5-chat-template-enhanced
   - mods/gpu-mem-util-gb
 
+# Mount host-side draft model into the container at /drafter
+# Path must exist on the target Spark: /home/snappyspark/models/Qwen3.5-35B-A3B-DFlash
+volumes:
+  - /home/snappyspark/models/Qwen3.5-35B-A3B-DFlash:/drafter
+
 defaults:
   port: 8000
   host: 0.0.0.0
   tensor_parallel: 1
   gpu_memory_utilization_gb: 76
   max_model_len: 262144
-  max_num_batched_tokens: 16384
+  max_num_batched_tokens: 32768
   max_num_seqs: 256
 
 env:
@@ -29,7 +35,7 @@ env:
 
 command: |
   vllm serve /models/Qwen3.5-35B-A3B-FP8 \
-    --served-model-name qwen3.5-35b \
+    --served-model-name qwen3.5-35b-dflash \
     --host {host} \
     --port {port} \
     --max-model-len {max_model_len} \
@@ -41,10 +47,9 @@ command: |
     --reasoning-parser qwen3 \
     --kv-cache-dtype fp8 \
     --load-format instanttensor \
-    --attention-backend flashinfer \
     --enable-prefix-caching \
     --enable-chunked-prefill \
     --chat-template qwen3.5-enhanced.jinja \
-    --speculative-config '{"method": "mtp", "num_speculative_tokens": 2}' \
+    --speculative-config '{"method":"dflash","model":"/drafter","num_speculative_tokens":15}' \
     --trust-remote-code \
     -tp {tensor_parallel}

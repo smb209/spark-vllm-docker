@@ -1,0 +1,61 @@
+# Recipe: OpenAI GPT-OSS 120B (SnapCalorie / Spark-style)
+# Single-node DGX Spark recipe tuned to match the working Spark2 launch style:
+# practical context cap, conservative concurrency, FlashInfer + fp8 KV cache,
+# and allocator tuning for long-lived single-box serving.
+
+recipe_version: "1"
+name: OpenAI GPT-OSS 120B (SC)
+description: Spark-style single-node vLLM serving for openai/gpt-oss-120b using MXFP4 + FlashInfer with conservative defaults.
+
+# HuggingFace model to download (optional, for --download-model)
+model: openai/gpt-oss-120b
+
+# Container image to use
+container: vllm-node-mxfp4
+
+# Build arguments for build-and-copy.sh
+build_args:
+  - --exp-mxfp4
+
+# Single-node only — intended to mirror the working Spark2 operating pattern
+solo_only: true
+
+# Upgrade openai-harmony to fix HarmonyError on tool-routing tokens (to=process)
+mods:
+  - ./mods/fix-harmony
+
+# Default settings (can be overridden via CLI)
+defaults:
+  port: 8000
+  host: 0.0.0.0
+  gpu_memory_utilization: 0.87
+  max_model_len: 131072
+  max_num_seqs: 8
+  max_num_batched_tokens: 32768
+
+# Environment variables to set in the container
+env:
+  VLLM_USE_FLASHINFER_MOE_MXFP4_MXFP8: "1"
+  PYTORCH_CUDA_ALLOC_CONF: "expandable_segments:True"
+
+# The vLLM serve command template
+command: |
+  vllm serve openai/gpt-oss-120b \
+      --tool-call-parser openai \
+      --reasoning-parser openai_gptoss \
+      --enable-auto-tool-choice \
+      --enforce-eager \
+      --tensor-parallel-size 1 \
+      --gpu-memory-utilization {gpu_memory_utilization} \
+      --max-model-len {max_model_len} \
+      --max-num-seqs {max_num_seqs} \
+      --max-num-batched-tokens {max_num_batched_tokens} \
+      --enable-prefix-caching \
+      --load-format fastsafetensors \
+      --quantization mxfp4 \
+      --mxfp4-backend CUTLASS \
+      --mxfp4-layers moe,qkv,o,lm_head \
+      --attention-backend FLASHINFER \
+      --kv-cache-dtype fp8 \
+      --host {host} \
+      --port {port}

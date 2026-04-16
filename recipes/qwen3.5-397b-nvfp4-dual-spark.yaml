@@ -1,20 +1,20 @@
-# Recipe: Qwen3.5-122B-A10B-FP8
-# Qwen3.5-122B model in native FP8 quantization
+# Recipe: Qwen3.5-397B-A17B-NVFP4 (2x Spark cluster)
+# Requires K=64 FlashInfer patch (flashinfer_k64_2786.patch) in the container build.
+# Based on verified qwen3.5-122b-fp8 tp=2 cluster recipe.
 
 recipe_version: "1"
-name: Qwen3.5-122B-FP8
-description: vLLM serving Qwen3.5-122B-FP8
+name: Qwen3.5-397B-NVFP4
+description: vLLM serving Qwen3.5-397B-A17B-NVFP4 across 2 DGX Sparks (TP=2)
 
 # HuggingFace model to download (optional, for --download-model)
-model: Qwen/Qwen3.5-122B-A10B-FP8
+model: nvidia/Qwen3.5-397B-A17B-NVFP4
 
 # Only cluster is supported
 cluster_only: true
 
-# Container image to use
+# Container image to use (built with K=64 FlashInfer patch)
 container: vllm-node
 
-# No mods required
 mods:
   - mods/fix-qwen3.5-chat-template
 
@@ -24,7 +24,7 @@ defaults:
   host: 0.0.0.0
   tensor_parallel: 2
   gpu_memory_utilization: 0.85
-  max_model_len: 262144
+  max_model_len: 65536
   max_num_batched_tokens: 8192
 
 # Environment variables
@@ -33,7 +33,7 @@ env:
 
 # The vLLM serve command template
 command: |
-  vllm serve Qwen/Qwen3.5-122B-A10B-FP8 \
+  vllm serve nvidia/Qwen3.5-397B-A17B-NVFP4 \
     --max-model-len {max_model_len} \
     --gpu-memory-utilization {gpu_memory_utilization} \
     --port {port} \
@@ -44,5 +44,6 @@ command: |
     --tool-call-parser qwen3_coder \
     --reasoning-parser qwen3 \
     --chat-template unsloth.jinja \
+    --speculative-config '{"method":"mtp","num_speculative_tokens":3}' \
     -tp {tensor_parallel} --distributed-executor-backend ray \
     --max-num-batched-tokens {max_num_batched_tokens}

@@ -1,5 +1,4 @@
 #!/bin/bash
-
 # This mod will drop the FS caches every minute - useful to unstuck Qwen3.5-397B or other similar models during loading
 
 CMD='sync; echo 3 > /proc/sys/vm/drop_caches'

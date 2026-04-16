@@ -119,6 +119,8 @@ command: |
 # Optional fields
 description: What this recipe does
 model: org/model-name              # HuggingFace model ID for --setup downloads
+container_name: vllm_node          # Docker container instance name (default: vllm_node)
+                                   # Set a unique name to run multiple recipes simultaneously
 cluster_only: false                # Set to true if model requires cluster mode
 build_args:                        # Extra args for build-and-copy.sh
   - --pre-tf                       # e.g., for transformers 5.0
@@ -248,7 +250,8 @@ These arguments are appended to the end of the generated vLLM command after all 
 3. Add `build_args` if your model needs special build options
 4. Add `mods` if your model needs patches
 5. Set `cluster_only: true` if model is too large for single node
-6. Set sensible `defaults`
+6. Set `container_name` if you want to run this recipe alongside another (e.g., `vllm-embedding`)
+7. Set sensible `defaults`
 7. Add `env` variables if needed
 
 Example:

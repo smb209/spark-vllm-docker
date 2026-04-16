@@ -538,6 +538,53 @@ EOF
     fi
 }
 
+# Test: container_name defaults to vllm_node when absent
+test_container_name_default() {
+    log_test "container_name defaults to vllm_node (no --name in command)"
+
+    temp_recipe=$(mktemp)
+    cat > "$temp_recipe" << 'EOF'
+recipe_version: "1"
+name: Default Container Name Test
+container: test-container
+command: echo "test"
+EOF
+
+    output=$("$PROJECT_DIR/run-recipe.py" "$temp_recipe" --dry-run --solo 2>&1)
+    rm -f "$temp_recipe"
+
+    if echo "$output" | grep -q "\-\-name"; then
+        log_fail "Default recipe unexpectedly contains --name flag"
+        log_verbose "$output"
+    else
+        log_pass "Default recipe correctly omits --name flag"
+    fi
+}
+
+# Test: container_name from recipe is passed as --name to launch-cluster.sh
+test_container_name_from_recipe() {
+    log_test "container_name from recipe passed as --name"
+
+    temp_recipe=$(mktemp)
+    cat > "$temp_recipe" << 'EOF'
+recipe_version: "1"
+name: Custom Container Name Test
+container: test-container
+container_name: vllm-embedding
+command: echo "test"
+EOF
+
+    output=$("$PROJECT_DIR/run-recipe.py" "$temp_recipe" --dry-run --solo 2>&1)
+    rm -f "$temp_recipe"
+
+    if echo "$output" | grep -q "\-\-name vllm-embedding"; then
+        log_pass "container_name from recipe correctly passed as --name"
+    else
+        log_fail "container_name from recipe not found in command"
+        log_verbose "$output"
+    fi
+}
+
 # ==============================================================================
 # Launch-cluster.sh Command Line Verification Tests
 # ==============================================================================
@@ -1290,8 +1337,10 @@ main() {
     test_solo_only_fails_cluster
     test_solo_only_allows_solo
     test_conflicting_mode_flags_fail
+    test_container_name_default
+    test_container_name_from_recipe
     echo ""
-    
+
     # Summary
     echo "=============================================="
     echo "  Test Summary"

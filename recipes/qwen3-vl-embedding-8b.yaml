@@ -1,0 +1,39 @@
+# Recipe: Qwen3-VL-Embedding-8B
+# Multimodal embedding model — text, images, screenshots, video
+# Runs alongside an LLM on the same node (low memory footprint ~15GB BF16)
+
+recipe_version: "1"
+name: Qwen3-VL-Embedding-8B
+description: vLLM pooling server for Qwen3-VL-Embedding-8B (text + multimodal)
+
+model: Qwen/Qwen3-VL-Embedding-8B
+
+container: vllm-node
+container_name: vllm-embedding
+
+solo_only: true  # embedding servers don't benefit from tensor parallelism
+
+# mods:
+#   - mods/gpu-mem-util-gb
+
+defaults:
+  port: 8001       # offset from LLM port so both can run on same Spark
+  host: 0.0.0.0
+  gpu_memory_utilization_gb: 18   # This is not reliable for this model, but lets keep it here for reference
+  gpu_memory_utilization: 0.17   # ~21GB — model is 15.48GB + CUDA graphs
+  max_model_len: 8192
+
+env:
+  VLLM_MEMORY_PROFILER_ESTIMATE_CUDAGRAPHS: "1"
+
+command: |
+  vllm serve /models/Qwen3-VL-Embedding-8B \
+    --served-model-name qwen3-vl-embedding \
+    --runner pooling \
+    --trust-remote-code \
+    --gpu-memory-utilization {gpu_memory_utilization} \
+    --host {host} \
+    --port {port} \
+    --load-format fastsafetensors \
+    --attention-backend flashinfer \
+    --max-model-len {max_model_len}

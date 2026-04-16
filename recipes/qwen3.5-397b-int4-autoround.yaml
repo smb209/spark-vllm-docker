@@ -20,7 +20,9 @@ build_args:
 
 # Mod required to fix ROPE syntax error
 mods:
-  - mods/fix-qwen3.5-autoround
+  # - mods/drop-caches
+  # - mods/fix-qwen3.5-autoround  # stale patch, removed
+  - mods/upgrade-transformers
   - mods/fix-qwen3.5-chat-template
   - mods/gpu-mem-util-gb
   - mods/drop-caches
@@ -36,12 +38,23 @@ defaults:
 
 # Environment variables
 env: 
+  HF_HUB_OFFLINE: "1"
+  TRANSFORMERS_OFFLINE: "1"
   PYTORCH_CUDA_ALLOC_CONF: "expandable_segments:True" 
   VLLM_MARLIN_USE_ATOMIC_ADD: 1
+  NCCL_IB_HCA: roceP2p1s0f0
+  NCCL_IB_EXCLUDE: rocep1s0f0,rocep1s0f1
+  NCCL_IB_GID_INDEX: "3"
+  NCCL_IB_USE_WRITE: "1"
+  NCCL_IB_MTU: "4096"
+  NCCL_NET_GDR_LEVEL: "5"
+  NCCL_DEBUG: INFO
+  # VLLM_MOE_BACKEND: DEEPGEMM
 
 # The vLLM serve command template
 command: |
-  vllm serve Intel/Qwen3.5-397B-A17B-int4-AutoRound \
+  vllm serve /models/Qwen3.5-397B-A17B-int4-AutoRound \
+    --served-model-name qwen3.5-397b \
     --max-model-len {max_model_len} \
     --max-num-seqs 2 \
     --kv-cache-dtype fp8 \
